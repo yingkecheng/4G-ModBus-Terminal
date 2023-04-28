@@ -18,11 +18,11 @@
 
 int main(void)
 {
-    int count = 1;
+    struct at_device_ec200x *ec200x = at_device_get_by_name(type, name);
+    at_device_control(device, cmd, arg)
 
-    while (count++)
+    while (1)
     {
-//        rt_kprintf("hello\r\n");
         rt_thread_mdelay(1000);
     }
 

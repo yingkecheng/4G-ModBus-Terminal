@@ -72,7 +72,7 @@
 #define FINSH_USING_DESCRIPTION
 #define FINSH_THREAD_PRIORITY 20
 #define FINSH_THREAD_STACK_SIZE 4096
-#define FINSH_CMD_SIZE 80
+#define FINSH_CMD_SIZE 512
 #define FINSH_USING_MSH
 #define FINSH_USING_MSH_DEFAULT
 #define FINSH_USING_MSH_ONLY
@@ -88,7 +88,7 @@
 #define RT_USING_DEVICE_IPC
 #define RT_PIPE_BUFSZ 512
 #define RT_USING_SERIAL
-#define RT_SERIAL_RB_BUFSZ 64
+#define RT_SERIAL_RB_BUFSZ 512
 #define RT_USING_PIN
 
 /* Using USB */
@@ -121,7 +121,7 @@
 #define AT_USING_CLIENT
 #define AT_CLIENT_NUM_MAX 1
 #define AT_USING_CLI
-#define AT_CMD_MAX_LEN 128
+#define AT_CMD_MAX_LEN 512
 #define AT_SW_VERSION_NUM 0x10301
 /* end of AT commands */
 /* end of Network */
