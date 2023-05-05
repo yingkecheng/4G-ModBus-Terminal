@@ -12,14 +12,15 @@
 #define RT_TICK_PER_SECOND 1000
 #define RT_USING_OVERFLOW_CHECK
 #define RT_USING_HOOK
+#define RT_HOOK_USING_FUNC_PTR
 #define RT_USING_IDLE_HOOK
 #define RT_IDLE_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 256
-#define RT_USING_TIMER_SOFT
-#define RT_TIMER_THREAD_PRIO 4
-#define RT_TIMER_THREAD_STACK_SIZE 512
+
+/* kservice optimization */
+
+/* end of kservice optimization */
 #define RT_DEBUG
-#define RT_DEBUG_COLOR
 
 /* Inter-Thread communication */
 
@@ -34,6 +35,7 @@
 
 #define RT_USING_MEMPOOL
 #define RT_USING_SMALL_MEM
+#define RT_USING_SMALL_MEM_AS_HEAP
 #define RT_USING_HEAP
 /* end of Memory Management */
 
@@ -44,7 +46,7 @@
 #define RT_CONSOLEBUF_SIZE 256
 #define RT_CONSOLE_DEVICE_NAME "uart1"
 /* end of Kernel Device Object */
-#define RT_VER_NUM 0x40003
+#define RT_VER_NUM 0x40100
 /* end of RT-Thread Kernel */
 #define ARCH_ARM
 #define RT_USING_CPU_FFS
@@ -55,29 +57,27 @@
 
 #define RT_USING_COMPONENTS_INIT
 #define RT_USING_USER_MAIN
-#define RT_MAIN_THREAD_STACK_SIZE 2048
+#define RT_MAIN_THREAD_STACK_SIZE 512
 #define RT_MAIN_THREAD_PRIORITY 10
-
-/* C++ features */
-
-/* end of C++ features */
-
-/* Command shell */
-
-/* end of Command shell */
-
-/* Device virtual file system */
-
-/* end of Device virtual file system */
+#define RT_USING_MSH
+#define RT_USING_FINSH
+#define FINSH_USING_MSH
+#define FINSH_THREAD_NAME "tshell"
+#define FINSH_THREAD_PRIORITY 20
+#define FINSH_THREAD_STACK_SIZE 2048
+#define FINSH_USING_HISTORY
+#define FINSH_HISTORY_LINES 5
+#define FINSH_USING_SYMTAB
+#define FINSH_CMD_SIZE 80
+#define MSH_USING_BUILT_IN_COMMANDS
+#define FINSH_USING_DESCRIPTION
+#define FINSH_ARG_MAX 10
 
 /* Device Drivers */
 
 #define RT_USING_DEVICE_IPC
-#define RT_PIPE_BUFSZ 512
-#define RT_USING_SYSTEM_WORKQUEUE
-#define RT_SYSTEM_WORKQUEUE_STACKSIZE 2048
-#define RT_SYSTEM_WORKQUEUE_PRIORITY 23
 #define RT_USING_SERIAL
+#define RT_USING_SERIAL_V1
 #define RT_SERIAL_RB_BUFSZ 64
 #define RT_USING_PIN
 
@@ -86,55 +86,31 @@
 /* end of Using USB */
 /* end of Device Drivers */
 
-/* POSIX layer and C standard library */
+/* C/C++ and POSIX layer */
 
-#define RT_USING_LIBC
-/* end of POSIX layer and C standard library */
+#define RT_LIBC_DEFAULT_TIMEZONE 8
+
+/* POSIX (Portable Operating System Interface) layer */
+
+
+/* Interprocess Communication (IPC) */
+
+
+/* Socket is in the 'Network' category */
+
+/* end of Interprocess Communication (IPC) */
+/* end of POSIX (Portable Operating System Interface) layer */
+/* end of C/C++ and POSIX layer */
 
 /* Network */
-
-/* Socket abstraction layer */
-
-#define RT_USING_SAL
-#define SAL_INTERNET_CHECK
-
-/* protocol stack implement */
-
-#define SAL_USING_AT
-/* end of protocol stack implement */
-#define SAL_SOCKETS_NUM 16
-/* end of Socket abstraction layer */
-
-/* Network interface device */
-
-#define RT_USING_NETDEV
-#define NETDEV_USING_IFCONFIG
-#define NETDEV_USING_PING
-#define NETDEV_USING_NETSTAT
-#define NETDEV_USING_AUTO_DEFAULT
-#define NETDEV_IPV4 1
-#define NETDEV_IPV6 0
-/* end of Network interface device */
-
-/* light weight TCP/IP stack */
-
-/* end of light weight TCP/IP stack */
-
-/* AT commands */
 
 #define RT_USING_AT
 #define AT_USING_CLIENT
 #define AT_CLIENT_NUM_MAX 1
-#define AT_USING_SOCKET
 #define AT_PRINT_RAW_CMD
-#define AT_CMD_MAX_LEN 128
+#define AT_CMD_MAX_LEN 512
 #define AT_SW_VERSION_NUM 0x10301
-/* end of AT commands */
 /* end of Network */
-
-/* VBUS(Virtual Software BUS) */
-
-/* end of VBUS(Virtual Software BUS) */
 
 /* Utilities */
 
@@ -145,30 +121,6 @@
 
 /* IoT - internet of things */
 
-#define PKG_USING_FREEMODBUS
-#define PKG_MODBUS_MASTER
-
-/* advanced configuration */
-
-#define RT_M_DISCRETE_INPUT_START 0
-#define RT_M_DISCRETE_INPUT_NDISCRETES 16
-#define RT_M_COIL_START 0
-#define RT_M_COIL_NCOILS 64
-#define RT_M_REG_INPUT_START 0
-#define RT_M_REG_INPUT_NREGS 100
-#define RT_M_REG_HOLDING_START 0
-#define RT_M_REG_HOLDING_NREGS 100
-#define RT_M_HD_RESERVE 0
-#define RT_M_IN_RESERVE 0
-#define RT_M_CO_RESERVE 0
-#define RT_M_DI_RESERVE 0
-/* end of advanced configuration */
-#define PKG_MODBUS_MASTER_RTU
-#define PKG_MODBUS_MASTER_SAMPLE
-#define MB_SAMPLE_TEST_SLAVE_ADDR 1
-#define MB_MASTER_USING_PORT_NUM 3
-#define MB_MASTER_USING_PORT_BAUDRATE 115200
-#define PKG_USING_FREEMODBUS_LATEST_VERSION
 
 /* Wi-Fi */
 
@@ -180,17 +132,6 @@
 
 /* end of Wiced WiFi */
 /* end of Wi-Fi */
-#define PKG_USING_AT_DEVICE
-#define AT_DEVICE_USING_EC200X
-#define AT_DEVICE_EC200X_SOCKET
-#define AT_DEVICE_EC200X_SAMPLE
-#define EC200X_SAMPLE_POWER_PIN -1
-#define EC200X_SAMPLE_STATUS_PIN -1
-#define EC200X_SAMPLE_WAKEUP_PIN -1
-#define EC200X_SAMPLE_CLIENT_NAME "uart2"
-#define EC200X_SAMPLE_RECV_BUFF_LEN 512
-#define PKG_USING_AT_DEVICE_V204
-#define PKG_AT_DEVICE_VER_NUM 0x20004
 
 /* IoT Cloud */
 

@@ -5,7 +5,7 @@
  *
  * Change Logs:
  * Date           Author       Notes
- * 2023-04-25     RT-Thread    first version
+ * 2023-05-05     RT-Thread    first version
  */
 
 #include <rtthread.h>
@@ -29,8 +29,10 @@ int main(void)
     return RT_EOK;
 }
 
-static void at_device_create(void)
+static int at_demo(int argc, char **argv)
 {
     at_client_init("uart2", 128);
+    return 0;
 }
-MSH_CMD_EXPORT(at_device_create,)
+MSH_CMD_EXPORT(at_demo, )
+

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-  <name>AT_Demo</name>
+  <name>AT_demo</name>
   <comment />
   <projects>
 	</projects>
@@ -24,6 +24,6 @@
     <nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
     <nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
   </natures>
-  <name>AT_Demo</name>
+  <name>AT_demo</name>
   <linkedResources />
 </projectDescription>
