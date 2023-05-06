@@ -57,14 +57,14 @@
 
 #define RT_USING_COMPONENTS_INIT
 #define RT_USING_USER_MAIN
-#define RT_MAIN_THREAD_STACK_SIZE 512
+#define RT_MAIN_THREAD_STACK_SIZE 2048
 #define RT_MAIN_THREAD_PRIORITY 10
 #define RT_USING_MSH
 #define RT_USING_FINSH
 #define FINSH_USING_MSH
 #define FINSH_THREAD_NAME "tshell"
 #define FINSH_THREAD_PRIORITY 20
-#define FINSH_THREAD_STACK_SIZE 2048
+#define FINSH_THREAD_STACK_SIZE 1024
 #define FINSH_USING_HISTORY
 #define FINSH_HISTORY_LINES 5
 #define FINSH_USING_SYMTAB
@@ -78,7 +78,7 @@
 #define RT_USING_DEVICE_IPC
 #define RT_USING_SERIAL
 #define RT_USING_SERIAL_V1
-#define RT_SERIAL_RB_BUFSZ 64
+#define RT_SERIAL_RB_BUFSZ 256
 #define RT_USING_PIN
 
 /* Using USB */
@@ -121,6 +121,30 @@
 
 /* IoT - internet of things */
 
+#define PKG_USING_FREEMODBUS
+#define PKG_MODBUS_MASTER
+
+/* advanced configuration */
+
+#define RT_M_DISCRETE_INPUT_START 0
+#define RT_M_DISCRETE_INPUT_NDISCRETES 16
+#define RT_M_COIL_START 0
+#define RT_M_COIL_NCOILS 64
+#define RT_M_REG_INPUT_START 0
+#define RT_M_REG_INPUT_NREGS 10
+#define RT_M_REG_HOLDING_START 0
+#define RT_M_REG_HOLDING_NREGS 10
+#define RT_M_HD_RESERVE 0
+#define RT_M_IN_RESERVE 0
+#define RT_M_CO_RESERVE 0
+#define RT_M_DI_RESERVE 0
+/* end of advanced configuration */
+#define PKG_MODBUS_MASTER_RTU
+#define PKG_MODBUS_MASTER_SAMPLE
+#define MB_SAMPLE_TEST_SLAVE_ADDR 1
+#define MB_MASTER_USING_PORT_NUM 3
+#define MB_MASTER_USING_PORT_BAUDRATE 115200
+#define PKG_USING_FREEMODBUS_LATEST_VERSION
 
 /* Wi-Fi */
 
@@ -146,6 +170,8 @@
 
 /* JSON: JavaScript Object Notation, a lightweight data-interchange format */
 
+#define PKG_USING_CJSON
+#define PKG_USING_CJSON_LATEST_VERSION
 /* end of JSON: JavaScript Object Notation, a lightweight data-interchange format */
 
 /* XML: Extensible Markup Language */

@@ -1,1 +1,12 @@
-[]
+[
+ {
+  "path": "/packages/iot/freemodbus", 
+  "ver": "latest", 
+  "name": "FREEMODBUS"
+ }, 
+ {
+  "path": "/packages/language/JSON/cJSON", 
+  "ver": "latest", 
+  "name": "CJSON"
+ }
+]

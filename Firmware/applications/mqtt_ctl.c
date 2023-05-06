@@ -20,6 +20,8 @@
 #define MQTT_RESP_SIZE 256
 #define MQTT_RESP_TIMEOUT 2000
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 static int mqtt_ctl_cfg(mqtt_ctl_t handler);
 static int mqtt_ctl_open(mqtt_ctl_t handler);
 static int mqtt_ctl_close(mqtt_ctl_t handler);
@@ -29,6 +31,7 @@ static int mqtt_ctl_sub(mqtt_ctl_t handler);
 static int mqtt_ctl_unsub(mqtt_ctl_t handler);
 static int mqtt_ctl_pubex(mqtt_ctl_t handler, const char *buf, int buf_size);
 
+static void ready_func(struct at_client *client, const char *data, rt_size_t size);
 static void urc_stat_func(struct at_client *client, const char *data, rt_size_t size);
 static void urc_open_func(struct at_client *client, const char *data, rt_size_t size);
 static void urc_close_func(struct at_client *client, const char *data, rt_size_t size);
@@ -37,28 +40,23 @@ static void urc_disc_func(struct at_client *client, const char *data, rt_size_t 
 static void urc_sub_func(struct at_client *client, const char *data, rt_size_t size);
 static void urc_uns_func(struct at_client *client, const char *data, rt_size_t size);
 static void urc_pubex_func(struct at_client *client, const char *data, rt_size_t size);
-
+static void urc_recv_func(struct at_client *client, const char *data, rt_size_t size);
 static int mqtt_urc_init(void);
 
-static struct at_urc urc_table[] =
-    {
-        {"+QMTSTAT", "\r\n", urc_stat_func},
-        {"+QMTOPEN", "\r\n", urc_open_func},
-        {"+QMTCLOSE", "\r\n", urc_close_func},
-        {"+QMTCONN", "\r\n", urc_conn_func},
-        {"+QMTDISC", "\r\n", urc_disc_func},
-        {"+QMTSUB", "\r\n", urc_sub_func},
-        {"+QMTUNS", "\r\n", urc_uns_func},
-        {"+QMTPUBEX", "\r\n", urc_pubex_func},
+static struct at_urc urc_table[] = {
+    {"RDY",         "\r\n", ready_func},
+    {"+QMTSTAT",    "\r\n", urc_stat_func},
+    {"+QMTOPEN",    "\r\n", urc_open_func},
+    {"+QMTCLOSE",   "\r\n", urc_close_func},
+    {"+QMTCONN",    "\r\n", urc_conn_func},
+    {"+QMTDISC",    "\r\n", urc_disc_func},
+    {"+QMTSUB",     "\r\n", urc_sub_func},
+    {"+QMTUNS",     "\r\n", urc_uns_func},
+    {"+QMTPUBEX",   "\r\n", urc_pubex_func},
+    {"+QMTRECV",    "\r\n", urc_recv_func},
 };
 
-static int mqtt_urc_init(void)
-{
-    at_set_urc_table(urc_table, sizeof(urc_table) / sizeof(urc_table[0]));
-    return 0;
-}
-
-static mqtt_ctl_t my_handler = NULL;
+extern mqtt_ctl_t my_handler;
 
 mqtt_ctl_t mqtt_ctl_create(void)
 {
@@ -94,25 +92,16 @@ mqtt_ctl_t mqtt_ctl_create(void)
         goto error;
     }
 
-    mqtt_urc_init();
-
     handler->cfg = mqtt_ctl_cfg;
     handler->open = mqtt_ctl_open;
+    handler->close = mqtt_ctl_close;
     handler->conn = mqtt_ctl_conn;
+    handler->disconn = mqtt_ctl_disconn;
+    handler->sub = mqtt_ctl_sub;
+    handler->unsub = mqtt_ctl_unsub;
     handler->pubex = mqtt_ctl_pubex;
 
-    int res = at_exec_cmd(handler->mqtt_resp, "AT");
-    if (res != 0)
-    {
-        LOG_E("Failed to execute at_exec_cmd.");
-        goto error;
-    }
-
-    if (!strcmp(at_resp_get_line(handler->mqtt_resp, 1), "OK"))
-    {
-        LOG_E("AT response error.");
-        goto error;
-    }
+    mqtt_urc_init();
 
     return handler;
 
@@ -217,23 +206,62 @@ void mqtt_ctl_deinit(mqtt_ctl_t handler)
     }
 }
 
-/**
- * mqtt_ctl_cfg - Configure MQTT settings
- * @handler: mqtt_ctl_t handler instance
- *
- * Return: 0 on success, -1 on failure
- */
+void mqtt_ctl_wait_rdy(mqtt_ctl_t handler)
+{
+    int count = 0;
+    while (!handler->is_rdy)
+    {
+        int res = at_exec_cmd(handler->mqtt_resp, "AT");
+        if (res == 0)
+        {
+            const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
+            if (!rt_strncmp(resp_line, "OK", rt_strlen("OK")))
+            {
+                count++;
+            }
+        }
+        if (count == 5)
+        {
+            handler->is_rdy = 1;
+        }
+        rt_thread_delay(500);
+    }
+}
+
+
 static int mqtt_ctl_cfg(mqtt_ctl_t handler)
 {
-    const char *mqtt_config_cmd = "AT+QMTCFG=\"aliauth\",0,a1mRa3t2xvm,dev_1,92664c8f6a77a8e52d35866dcf4d6737";
+    const char *mqtt_cfg_query = "AT+QMTCFG=\"aliauth\",0";
+    const char *mqtt_cfg_set = "a1mRa3t2xvm,dev_1,92664c8f6a77a8e52d35866dcf4d6737";
 
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_config_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_cfg_query);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
     {
         const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
-        return rt_strncmp(resp_line, "OK", rt_strlen("OK")) == 0 ? 0 : -1;
+        const char *cfg_start = strchr(resp_line, ',');
+        if (++cfg_start)
+        {
+            handler->is_cfg = rt_strncmp(cfg_start, mqtt_cfg_set, rt_strlen(mqtt_cfg_set)) == 0 ? 1 : 0;
+        }
+    }
+
+    if (handler->is_cfg == 1)
+    {
+        return 0;
+    }
+
+    rt_snprintf(handler->buf, handler->buf_size, "%s,%s", mqtt_cfg_query, mqtt_cfg_set);
+    res = at_exec_cmd(handler->mqtt_resp, handler->buf);
+    if (res == 0)
+    {
+        const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
+        rt_kprintf("resp_line: %s\r\n", resp_line);
+        if (!rt_strncmp(resp_line, "OK", rt_strlen("OK")))
+        {
+            return 0;
+        }
     }
 
     return -1;
@@ -241,16 +269,41 @@ static int mqtt_ctl_cfg(mqtt_ctl_t handler)
 
 static int mqtt_ctl_open(mqtt_ctl_t handler)
 {
-    const char *mqtt_open_cmd = "AT+QMTOPEN=0,a1mRa3t2xvm.iot-as-mqtt.cn-shanghai.aliyuncs.com,1883";
+    const char *mqtt_open_query = "AT+QMTOPEN";
+    const char *mqtt_open_set = "0,a1mRa3t2xvm.iot-as-mqtt.cn-shanghai.aliyuncs.com,1883";
 
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_open_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s?", mqtt_open_query);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
     {
         const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
-        return rt_strncmp(resp_line, "OK", rt_strlen("OK")) == 0 ? 0 : -1;
+        const char *open_start = strchr(resp_line, ':');
+        if (open_start)
+        {
+            open_start += 2;
+            int open_start_len = rt_strlen(open_start);
+            int mqtt_open_set_len = rt_strlen(mqtt_open_set);
+            int min_len = min(open_start, mqtt_open_set_len);
+
+            handler->is_open = rt_strncmp(open_start, mqtt_open_set, min_len) == 0 ? 1 : 0;
+        }
     }
+
+    if (handler->is_open)
+    {
+        return 0;
+    }
+
+    rt_snprintf(handler->buf, handler->buf_size, "%s=%s", mqtt_open_query, mqtt_open_set);
+    res = at_exec_cmd(handler->mqtt_resp, handler->buf);
+    if (res == 0)
+    {
+        const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
+        return rt_strncmp(resp_line, "OK", rt_strlen("OK")) == 0 ? 0 : -1;
+
+    }
+
     return -1;
 }
 
@@ -258,7 +311,7 @@ static int mqtt_ctl_close(mqtt_ctl_t handler)
 {
     const char *mqtt_close_cmd = "AT+QMTDISC=0";
 
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_open_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_close_cmd);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
@@ -271,23 +324,43 @@ static int mqtt_ctl_close(mqtt_ctl_t handler)
 
 static int mqtt_ctl_conn(mqtt_ctl_t handler)
 {
-    const char *mqtt_conn_cmd = "AT+QMTCONN=0,a1mRa3t2xvm.dev_1,dev_1&a1mRa3t2xvm,2917e1b3dc0311553579238cb78840fbb53f4bfbf188b713558a98f18f271556";
+    const char *mqtt_conn_query = "AT+QMTCONN";
+    const char *mqtt_conn_set = "0,a1mRa3t2xvm.dev_1,dev_1&a1mRa3t2xvm,2917e1b3dc0311553579238cb78840fbb53f4bfbf188b713558a98f18f271556";
 
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_conn_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s?", mqtt_conn_query);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
+    if (res == 0)
+    {
+        int state;
+        const char *resp_line = at_resp_parse_line_args(handler->mqtt_resp, 2, "+QMTCONN: 0, %d", &state);
+        if (state == 3)
+        {
+            handler->is_conn = 1;
+        }
+    }
+
+    if (handler->is_conn)
+    {
+        return 0;
+    }
+
+    rt_snprintf(handler->buf, handler->buf_size, "%s=%s", mqtt_conn_query, mqtt_conn_set);
+
+    res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
     {
         const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
         return rt_strncmp(resp_line, "OK", rt_strlen("OK")) == 0 ? 0 : -1;
     }
+
     return -1;
 }
 
 static int mqtt_ctl_disconn(mqtt_ctl_t handler)
 {
     const char *mqtt_disc_cmd = "AT+QMTDISC=0";
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_conn_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_disc_cmd);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
@@ -301,7 +374,7 @@ static int mqtt_ctl_disconn(mqtt_ctl_t handler)
 static int mqtt_ctl_sub(mqtt_ctl_t handler)
 {
     const char *mqtt_sub_cmd = "AT+QMTSUB=0,1,/a1mRa3t2xvm/dev_1/user/get,0";
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_conn_cmd);
+    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_sub_cmd);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
@@ -314,8 +387,8 @@ static int mqtt_ctl_sub(mqtt_ctl_t handler)
 
 static int mqtt_ctl_unsub(mqtt_ctl_t handler)
 {
-    const char *mqtt_sub_cmd = "AT+QMTUNS=0,1,/a1mRa3t2xvm/dev_1/user/get,0";
-    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_conn_cmd);
+    const char *mqtt_uns_cmd = "AT+QMTUNS=0,1,/a1mRa3t2xvm/dev_1/user/get,0";
+    rt_snprintf(handler->buf, handler->buf_size, "%s", mqtt_uns_cmd);
 
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
     if (res == 0)
@@ -351,99 +424,73 @@ static int mqtt_ctl_pubex(mqtt_ctl_t handler, const char *buf, int buf_size)
     return -1;
 }
 
+static int mqtt_urc_init(void)
+{
+    at_set_urc_table(urc_table, sizeof(urc_table) / sizeof(urc_table[0]));
+    return 0;
+}
+
+static void ready_func(struct at_client *client, const char *data, rt_size_t size)
+{
+    LOG_D("ready_func");
+    my_handler->is_rdy = 1;
+}
+
 static void urc_stat_func(struct at_client *client, const char *data, rt_size_t size)
 {
-    rt_kprintf("urc_stat_func\r\n");
+    LOG_D("urc_stat_func");
 }
 
 static void urc_open_func(struct at_client *client, const char *data, rt_size_t size)
 {
-    rt_kprintf("urc_open_func\r\n");
+    LOG_D("urc_open_func");
     my_handler->is_open = 1;
+}
+
+static void urc_close_func(struct at_client *client, const char *data, rt_size_t size)
+{
+    LOG_D("urc_close_func");
 }
 
 static void urc_conn_func(struct at_client *client, const char *data, rt_size_t size)
 {
-    rt_kprintf("urc_conn_func\r\n");
+    LOG_D("urc_conn_func");
+    my_handler->is_conn = 1;
+}
+
+static void urc_disc_func(struct at_client *client, const char *data, rt_size_t size)
+{
+    LOG_D("urc_disc_func");
+    my_handler->is_conn = 1;
+}
+
+static void urc_sub_func(struct at_client *client, const char *data, rt_size_t size)
+{
+    LOG_D("urc_sub_func");
+    my_handler->is_conn = 1;
+}
+
+static void urc_uns_func(struct at_client *client, const char *data, rt_size_t size)
+{
+    LOG_D("urc_uns_func");
     my_handler->is_conn = 1;
 }
 
 static void urc_pubex_func(struct at_client *client, const char *data, rt_size_t size)
 {
-    rt_kprintf("urc_pubex_func\r\n");
+    LOG_D("urc_pubex_func");
 }
 
-int mqtt_ctl_test(int argc, char **argv)
+static void urc_recv_func(struct at_client *client, const char *data, rt_size_t size)
 {
-    my_handler = mqtt_ctl_create();
-    if (my_handler == NULL)
-    {
-        return -1;
-    }
-
-    if (my_handler->cfg)
-    {
-        int res = my_handler->cfg(my_handler);
-        if (res != 0)
-        {
-            rt_kprintf("Failed to cfg.\r\n");
-        }
-        else
-        {
-            rt_kprintf("Successed to cfg.\r\n");
-        }
-    }
-
-    if (my_handler->open)
-    {
-        int res = my_handler->open(my_handler);
-        if (res != 0)
-        {
-            rt_kprintf("Failed to open.\r\n");
-        }
-        else
-        {
-            rt_kprintf("Successed to open.\r\n");
-        }
-    }
-
-    while (!my_handler->is_open)
-        ;
-
-    if (my_handler->conn)
-    {
-        int res = my_handler->conn(my_handler);
-        if (res != 0)
-        {
-            rt_kprintf("Failed to conn.\r\n");
-        }
-        else
-        {
-            rt_kprintf("Successed to conn.\r\n");
-        }
-    }
-
-    while (!my_handler->is_conn)
-        ;
-
-    if (my_handler->pubex)
-    {
-        int res = my_handler->pubex(my_handler, "Hello", rt_strlen("Hello"));
-        if (res != 0)
-        {
-            rt_kprintf("Failed to pub.\r\n");
-        }
-        else
-        {
-            rt_kprintf("Successed to pub.\r\n");
-        }
-    }
-
-    mqtt_ctl_delete(my_handler);
-    return 0;
+    LOG_D("urc_recv_func");
+    LOG_D("recv data: %s", data);
+    //    const char *msg_start = strchr(data, '{');
+    //    const char *msg_end = strrchr(data, '}');
+    //    if (msg_start && msg_end)
+    //    {
+    //        rt_strncpy(msg_buf, msg_start, msg_end - msg_start + 1);
+    //        rt_kprintf("recv msg: %s\r\n", msg_buf);
+    //        rt_sem_release(recv_sem);
+    //    }
 }
-#ifdef FINSH_USING_MSH
-#include <finsh.h>
-/* 输出 at_Client_send 函数到 msh 中 */
-MSH_CMD_EXPORT(mqtt_ctl_test, );
-#endif
