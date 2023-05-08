@@ -14,6 +14,10 @@
 #include "mb_m.h"
 #include "cJSON.h"
 
+#define DBG_TAG "sample_mb_master"
+#define DBG_LVL DBG_LOG
+#include <rtdbg.h>
+
 #ifdef PKG_MODBUS_MASTER_SAMPLE
 #define SLAVE_ADDR      MB_SAMPLE_TEST_SLAVE_ADDR
 #define PORT_NUM        MB_MASTER_USING_PORT_NUM
@@ -37,39 +41,85 @@ static int msg_proc(int slaveAddr, int func, int regStart, int regNum, int rw);
 
 extern rt_sem_t recv_sem;
 extern char msg_buf[256];
-static uint16_t data_buf[16];
+static uint8_t data_buf[16];
+static uint16_t data2_buf[16];
 
 static void send_thread_entry(void *parameter)
 {
     eMBMasterReqErrCode error_code = MB_MRE_NO_ERR;
     rt_uint16_t error_count = 0;
 
-    rt_sem_take(recv_sem, RT_WAITING_FOREVER);
-    rt_kprintf("modbus msg: %s\r\n", msg_buf);
-
-    cJSON *json = cJSON_Parse(msg_buf);
-    int slaveAddr = cJSON_GetObjectItem(json, "slaveAddr")->valueint;
-    int func = cJSON_GetObjectItem(json, "func")->valueint;
-    int regStart = cJSON_GetObjectItem(json, "regStart")->valueint;
-    int regNum = cJSON_GetObjectItem(json, "regNum")->valueint;
-    int rw = cJSON_GetObjectItem(json, "regNum")->valueint;
-    cJSON *array = cJSON_GetObjectItem(json, "data");
-    for (int i = 0; i < regNum; i++)
-    {
-        data_buf[i] = cJSON_GetArrayItem(array, i)->valueint;
-        rt_kprintf("data_buf[%d]: %d\r\n", i, data_buf[i]);
-    }
-    rt_kprintf("json data: %d %d %d %d %d\r\n", slaveAddr, func, regStart, regNum, rw);
-
     while (1)
     {
-        error_code = msg_proc(slaveAddr, func, regStart, regNum, rw);
+        rt_sem_take(recv_sem, RT_WAITING_FOREVER);
+        LOG_D("modbus msg: %s", msg_buf);
+
+        cJSON *json = cJSON_Parse(msg_buf);
+        int slaveAddr = cJSON_GetObjectItem(json, "slaveAddr")->valueint;
+        int func = cJSON_GetObjectItem(json, "func")->valueint;
+        int regStart = cJSON_GetObjectItem(json, "regStart")->valueint;
+        int regNum = cJSON_GetObjectItem(json, "regNum")->valueint;
+        int rw = cJSON_GetObjectItem(json, "rw")->valueint;
+
+        LOG_D("json data: slaveAddr: %d, func: %d, regStart: %d, regNum: %d, rw: %d.", slaveAddr, func, regStart, regNum, rw);
+
+        switch (func)
+        {
+        case 1:
+            if (rw == 0)
+            {
+                cJSON *array = cJSON_GetObjectItem(json, "data");
+                uint8_t *data = rt_malloc(16 * sizeof(uint8_t));
+                if (!data)
+                    continue;
+
+                for (int i = 0; i < regNum; i++)
+                {
+                    data[i] = (uint8_t)cJSON_GetArrayItem(array, i)->valueint;
+                    LOG_D("data[%d]: %d", i, data[i]);
+                }
+                error_code = eMBMasterReqWriteMultipleCoils(slaveAddr, regStart, regNum, data, RT_WAITING_FOREVER);
+                rt_free(data);
+            }
+            else
+            {
+                error_code = eMBMasterReqReadCoils(slaveAddr, regStart, regNum, RT_WAITING_FOREVER);
+            }
+            break;
+        case 2:
+        case 3:
+            if (rw == 0)
+            {
+                cJSON *array = cJSON_GetObjectItem(json, "data");
+                uint16_t *data = rt_malloc(16 * sizeof(uint16_t));
+                if (!data)
+                    continue;
+
+                for (int i = 0; i < regNum; i++)
+                {
+                    data[i] = (uint16_t)cJSON_GetArrayItem(array, i)->valueint;
+                    LOG_D("data[%d]: %d", i, data[i]);
+                }
+                error_code = eMBMasterReqWriteMultipleHoldingRegister(slaveAddr, regStart, regNum, data, RT_WAITING_FOREVER);
+                rt_free(data);
+            }
+            else
+            {
+                error_code = eMBMasterReqReadCoils(slaveAddr, regStart, regNum, RT_WAITING_FOREVER);
+            }
+            break;
+        case 4:
+        default:
+            break;
+        }
 
         /* Record the number of errors */
         if (error_code != MB_MRE_NO_ERR)
         {
             error_count++;
         }
+
+        cJSON_Delete(json);
     }
 }
 
@@ -105,7 +155,7 @@ int mb_master_sample(int argc, char **argv)
         goto __exit;
     }
 
-    tid2 = rt_thread_create("md_m_send", send_thread_entry, RT_NULL, 512, MB_SEND_THREAD_PRIORITY, 10);
+    tid2 = rt_thread_create("md_m_send", send_thread_entry, RT_NULL, 1024, MB_SEND_THREAD_PRIORITY, 10);
     if (tid2 != RT_NULL)
     {
         rt_thread_startup(tid2);
@@ -137,10 +187,18 @@ static int msg_proc(int slaveAddr, int func, int regStart, int regNum, int rw)
         if (rw == 0)
         {
             res = eMBMasterReqWriteMultipleCoils(slaveAddr, regStart, regNum, data_buf, RT_WAITING_FOREVER);
+            LOG_D("res: %d", res);
         }
         else
         {
             res = eMBMasterReqReadCoils(slaveAddr, regStart, regNum, RT_WAITING_FOREVER);
         }
+        break;
+    case 3:
+        if (rw == 0)
+        {
+            res = eMBMasterReqWriteMultipleHoldingRegister(slaveAddr, regStart, regNum, data2_buf, RT_WAITING_FOREVER);
+        }
     }
+    return 0;
 }

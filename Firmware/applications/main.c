@@ -17,7 +17,7 @@
 
 #include "mqtt_ctl.h"
 
-
+static unsigned char is_stop = 0;
 
 int mqtt_ctl_test(int argc, char **argv);
 extern int mb_master_sample(int argc, char **argv);
@@ -28,11 +28,11 @@ rt_sem_t recv_sem = NULL;
 
 int main(void)
 {
-//    /* 初始化信号量 */
-//    recv_sem = rt_sem_create("recv_sem", 0, RT_IPC_FLAG_PRIO);
-//
-//    /* 初始化 freemodbus */
-//    mb_master_sample(0, NULL);
+    /* 初始化信号量 */
+    recv_sem = rt_sem_create("recv_sem", 0, RT_IPC_FLAG_PRIO);
+
+    /* 初始化 freemodbus */
+    mb_master_sample(0, NULL);
 
     /* 运行 mqtt_ctl */
     mqtt_ctl_test(0, NULL);
@@ -53,6 +53,8 @@ int mqtt_ctl_test(int argc, char **argv)
     {
         return -1;
     }
+
+    is_stop = 0;
 
     mqtt_ctl_wait_rdy(my_handler);
 
@@ -107,50 +109,50 @@ int mqtt_ctl_test(int argc, char **argv)
     {
         rt_thread_delay(100);
     }
-//
-//    if (my_handler->sub)
-//    {
-//        int res = my_handler->sub(my_handler);
-//        if (res != 0)
-//        {
-//            rt_kprintf("Failed to sub.\r\n");
-//        }
-//        else
-//        {
-//            rt_kprintf("Successed to sub.\r\n");
-//        }
-//    }
-//
-//    while (1)
-//    {
-//        rt_thread_delay(100);
-//    }
-//
-//    if (my_handler->unsub)
-//    {
-//        int res = my_handler->unsub(my_handler);
-//        if (res != 0)
-//        {
-//            rt_kprintf("Failed to unsub.\r\n");
-//        }
-//        else
-//        {
-//            rt_kprintf("Successed to unsub.\r\n");
-//        }
-//    }
-//
-//    if (my_handler->disconn)
-//    {
-//        int res = my_handler->disconn(my_handler);
-//        if (res != 0)
-//        {
-//            rt_kprintf("Failed to disconn.\r\n");
-//        }
-//        else
-//        {
-//            rt_kprintf("Successed to disconn.\r\n");
-//        }
-//    }
+
+    if (my_handler->sub)
+    {
+        int res = my_handler->sub(my_handler);
+        if (res != 0)
+        {
+            rt_kprintf("Failed to sub.\r\n");
+        }
+        else
+        {
+            rt_kprintf("Successed to sub.\r\n");
+        }
+    }
+
+    while (!is_stop)
+    {
+        rt_thread_delay(100);
+    }
+
+    if (my_handler->unsub)
+    {
+        int res = my_handler->unsub(my_handler);
+        if (res != 0)
+        {
+            rt_kprintf("Failed to unsub.\r\n");
+        }
+        else
+        {
+            rt_kprintf("Successed to unsub.\r\n");
+        }
+    }
+
+    if (my_handler->disconn)
+    {
+        int res = my_handler->disconn(my_handler);
+        if (res != 0)
+        {
+            rt_kprintf("Failed to disconn.\r\n");
+        }
+        else
+        {
+            rt_kprintf("Successed to disconn.\r\n");
+        }
+    }
 
     mqtt_ctl_delete(my_handler);
     return 0;
@@ -160,5 +162,12 @@ int mqtt_ctl_test(int argc, char **argv)
 /* 输出 at_Client_send 函数到 msh 中 */
 MSH_CMD_EXPORT(mqtt_ctl_test, );
 #endif
+
+int mqtt_stop(int argc, char **argv)
+{
+    is_stop = 1;
+    return 0;
+}
+MSH_CMD_EXPORT(mqtt_stop, mqtt_stop)
 
 

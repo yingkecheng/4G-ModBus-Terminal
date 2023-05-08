@@ -20,7 +20,7 @@
 #define MQTT_RESP_SIZE 256
 #define MQTT_RESP_TIMEOUT 2000
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
+static int min(int a, int b);
 
 static int mqtt_ctl_cfg(mqtt_ctl_t handler);
 static int mqtt_ctl_open(mqtt_ctl_t handler);
@@ -58,6 +58,8 @@ static struct at_urc urc_table[] = {
 };
 
 extern mqtt_ctl_t my_handler;
+extern char msg_buf[256];
+extern rt_sem_t recv_sem;
 
 mqtt_ctl_t mqtt_ctl_create(void)
 {
@@ -284,7 +286,7 @@ static int mqtt_ctl_open(mqtt_ctl_t handler)
             open_start += 2;
             int open_start_len = rt_strlen(open_start);
             int mqtt_open_set_len = rt_strlen(mqtt_open_set);
-            int min_len = min(open_start, mqtt_open_set_len);
+            int min_len = min(open_start_len, mqtt_open_set_len);
 
             handler->is_open = rt_strncmp(open_start, mqtt_open_set, min_len) == 0 ? 1 : 0;
         }
@@ -500,12 +502,16 @@ static void urc_recv_func(struct at_client *client, const char *data, rt_size_t 
 {
     LOG_D("urc_recv_func");
     LOG_D("recv data: %s", data);
-    //    const char *msg_start = strchr(data, '{');
-    //    const char *msg_end = strrchr(data, '}');
-    //    if (msg_start && msg_end)
-    //    {
-    //        rt_strncpy(msg_buf, msg_start, msg_end - msg_start + 1);
-    //        rt_kprintf("recv msg: %s\r\n", msg_buf);
-    //        rt_sem_release(recv_sem);
-    //    }
+    const char *msg_start = strchr(data, '{');
+    const char *msg_end = strrchr(data, '}');
+    if (msg_start && msg_end)
+    {
+        rt_strncpy(msg_buf, msg_start, msg_end - msg_start + 1);
+        rt_kprintf("recv msg: %s\r\n", msg_buf);
+        rt_sem_release(recv_sem);
+    }
+}
+
+static int min(int a, int b) {
+    return a < b ? a : b;
 }
