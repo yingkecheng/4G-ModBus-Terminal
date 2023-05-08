@@ -1,9 +1,10 @@
-AT+QMTCFG="aliauth",0,a1mRa3t2xvm,Terminal,28bba63d0aefd061681310c1e00e17c8
-	
+AT+QMTCFG="aliauth",0,a1mRa3t2xvm,dev_1,92664c8f6a77a8e52d35866dcf4d6737
+AT+QMTCFG="aliauth",0
 a1mRa3t2xvm.iot-as-mqtt.cn-shanghai.aliyuncs.com
 AT+QMTOPEN=0,a1mRa3t2xvm.iot-as-mqtt.cn-shanghai.aliyuncs.com,1883
-AT+QMTCONN=0,a1mRa3t2xvm.Terminal|securemode=2,signmethod=hmacsha256,timestamp=1683278640528|,Terminal&a1mRa3t2xvm,b0b0a669aec66563d892cb47d03232a4d6c7c9bc8d1c303837434b9205b460e1
+
+AT+QMTCONN=0,a1mRa3t2xvm.dev_1,dev_1&a1mRa3t2xvm,2917e1b3dc0311553579238cb78840fbb53f4bfbf188b713558a98f18f271556
 AT+QMTDISC=0
 AT+QMTPUBEX=0,0,0,1,/a1mRa3t2xvm/Terminal/user/update,1
 /a1mRa3t2xvm/${deviceName}/user/get
-AT+QMTSUB=0,1,/a1mRa3t2xvm/Terminal/user/get,0
+AT+QMTSUB=0,1,/a1mRa3t2xvm/dev_1/user/get,0

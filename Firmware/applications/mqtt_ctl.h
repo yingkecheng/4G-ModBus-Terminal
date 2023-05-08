@@ -22,8 +22,9 @@ struct mqtt_ctl
     int buf_size;                          // Size of the buffer
     uint8_t is_rdy;
     uint8_t is_cfg;
-    uint8_t waiting_cfg_urc;
+    uint8_t waiting_open_urc;
     uint8_t is_open;
+    uint8_t waiting_conn_urc;
     uint8_t is_conn;
     int (*cfg)(mqtt_ctl_t handler);        // Function pointer for MQTT configuration
     int (*open)(mqtt_ctl_t handler);       // Function pointer for opening MQTT connection

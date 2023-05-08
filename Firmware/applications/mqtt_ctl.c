@@ -44,16 +44,17 @@ static void urc_recv_func(struct at_client *client, const char *data, rt_size_t 
 static int mqtt_urc_init(void);
 
 static struct at_urc urc_table[] = {
-    {"RDY",         "\r\n", ready_func},
-    {"+QMTSTAT",    "\r\n", urc_stat_func},
-    {"+QMTOPEN",    "\r\n", urc_open_func},
-    {"+QMTCLOSE",   "\r\n", urc_close_func},
-    {"+QMTCONN",    "\r\n", urc_conn_func},
-    {"+QMTDISC",    "\r\n", urc_disc_func},
-    {"+QMTSUB",     "\r\n", urc_sub_func},
-    {"+QMTUNS",     "\r\n", urc_uns_func},
-    {"+QMTPUBEX",   "\r\n", urc_pubex_func},
-    {"+QMTRECV",    "\r\n", urc_recv_func},
+    {"RDY", "\r\n", ready_func},
+    {"+QMTSTAT", "\r\n", urc_stat_func},
+    {"+QMTCLOSE", "\r\n", urc_close_func},
+    {"+QMTDISC", "\r\n", urc_disc_func},
+    {"+QMTSUB", "\r\n", urc_sub_func},
+    {"+QMTUNS", "\r\n", urc_uns_func},
+    {"+QMTPUBEX", "\r\n", urc_pubex_func},
+    {"+QMTRECV", "\r\n", urc_recv_func},
+
+    {"+QMTOPEN", "\r\n", urc_open_func},
+    {"+QMTCONN", "\r\n", urc_conn_func},
 };
 
 extern mqtt_ctl_t my_handler;
@@ -228,7 +229,6 @@ void mqtt_ctl_wait_rdy(mqtt_ctl_t handler)
     }
 }
 
-
 static int mqtt_ctl_cfg(mqtt_ctl_t handler)
 {
     const char *mqtt_cfg_query = "AT+QMTCFG=\"aliauth\",0";
@@ -301,7 +301,6 @@ static int mqtt_ctl_open(mqtt_ctl_t handler)
     {
         const char *resp_line = at_resp_get_line(handler->mqtt_resp, 2);
         return rt_strncmp(resp_line, "OK", rt_strlen("OK")) == 0 ? 0 : -1;
-
     }
 
     return -1;
@@ -325,19 +324,21 @@ static int mqtt_ctl_close(mqtt_ctl_t handler)
 static int mqtt_ctl_conn(mqtt_ctl_t handler)
 {
     const char *mqtt_conn_query = "AT+QMTCONN";
-    const char *mqtt_conn_set = "0,a1mRa3t2xvm.dev_1,dev_1&a1mRa3t2xvm,2917e1b3dc0311553579238cb78840fbb53f4bfbf188b713558a98f18f271556";
+    const char *mqtt_conn_set =
+        "0,a1mRa3t2xvm.dev_1,dev_1&a1mRa3t2xvm,2917e1b3dc0311553579238cb78840fbb53f4bfbf188b713558a98f18f271556";
 
     rt_snprintf(handler->buf, handler->buf_size, "%s?", mqtt_conn_query);
 
+    handler->waiting_conn_urc = 1;
     int res = at_exec_cmd(handler->mqtt_resp, handler->buf);
-    if (res == 0)
+    if (res != 0)
     {
-        int state;
-        const char *resp_line = at_resp_parse_line_args(handler->mqtt_resp, 2, "+QMTCONN: 0, %d", &state);
-        if (state == 3)
-        {
-            handler->is_conn = 1;
-        }
+        handler->waiting_conn_urc = 0;
+    }
+
+    while (handler->waiting_conn_urc)
+    {
+        rt_thread_delay(100);
     }
 
     if (handler->is_conn)
@@ -455,13 +456,27 @@ static void urc_close_func(struct at_client *client, const char *data, rt_size_t
 static void urc_conn_func(struct at_client *client, const char *data, rt_size_t size)
 {
     LOG_D("urc_conn_func");
-    my_handler->is_conn = 1;
+    LOG_D("conn urc data: %s", data);
+    if (my_handler->waiting_conn_urc)
+    {
+        int state;
+        sscanf(data, "+QMTCONN: 0,%d", &state);
+        LOG_D("state: %d", state);
+        if (state == 3)
+        {
+            my_handler->is_conn = 1;
+        }
+        my_handler->waiting_conn_urc = 0;
+    }
+    else
+    {
+        my_handler->is_conn = 1;
+    }
 }
 
 static void urc_disc_func(struct at_client *client, const char *data, rt_size_t size)
 {
     LOG_D("urc_disc_func");
-    my_handler->is_conn = 1;
 }
 
 static void urc_sub_func(struct at_client *client, const char *data, rt_size_t size)
