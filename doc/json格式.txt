@@ -2,5 +2,11 @@ rw 为 0 写
 rw 为 1 读
 {"slaveAddr":1,"func":1,"regStart":3,"regNum":4,"rw":1}
 {"slaveAddr":1,"func":1,"regStart":3,"regNum":4,"rw":0,"data":[1,0,1,1]}
+{"slaveAddr":1,"func":1,"regStart":0,"regNum":8,"rw":0,"data":[1,0,1,1,1,0,1,1]}
+{"slaveAddr":1,"func":1,"regStart":0,"regNum":10,"rw":0,"data":[1,0,1,1,1,0,1,1,0,1]}
 
-{"slaveAddr":1,"func":3,"regStart":3,"regNum":4,"rw":0,"data":[1,0,1,1]}
+{"slaveAddr":1,"func":0,"regStart":3,"regNum":4,"rw":1}
+
+{"slaveAddr":1,"func":3,"regStart":3,"regNum":4,"rw":0,"data":[8,3,1,9]}
+
+{"slaveAddr":1,"func":3,"regStart":2,"regNum":3,"rw":1}

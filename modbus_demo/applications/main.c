@@ -20,7 +20,7 @@ int main(void)
 {
     int count = 1;
 
-    // mb_master_sample(0, NULL);
+    mb_master_sample(0, NULL);
 
     while (count++)
     {
